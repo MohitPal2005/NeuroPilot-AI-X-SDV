@@ -1,0 +1,7 @@
+venv/
+node_modules/
+__pycache__/
+*.pyc
+.env
+*.log
+vision_telemetry_log.csv
