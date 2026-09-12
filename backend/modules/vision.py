@@ -6,6 +6,7 @@ import mediapipe as mp
 from mediapipe.python.solutions import face_mesh as mp_face_mesh
 
 from config import EAR_THRESHOLD, GAZE_LEFT_THRESH, GAZE_RIGHT_THRESH, YAW_THRESHOLD, PITCH_THRESHOLD
+from modules.models import SensorOutput
 
 class AdvancedVisionEngine:
     def __init__(self):
@@ -91,7 +92,14 @@ class AdvancedVisionEngine:
         if not results.multi_face_landmarks:
             if self.eye_closed_start_time: self.eye_closed_start_time = None
             if self.gaze_away_start_time: self.gaze_away_start_time = None
-            return metrics
+            return SensorOutput(
+                score=0.0,
+                confidence=0.0,
+                timestamp=current_time,
+                source="visual_engine",
+                validity=False,
+                raw_data=metrics
+            )
 
         landmarks = results.multi_face_landmarks[0].landmark
         metrics["face_detected"] = True
@@ -142,4 +150,12 @@ class AdvancedVisionEngine:
         else:
             self.gaze_away_start_time = None
 
-        return metrics
+        visual_score = 0.5 if (metrics.get("gaze_away_duration", 0) > 0 or metrics.get("eye_closed_duration", 0) > 0) else 0.1
+        return SensorOutput(
+            score=visual_score,
+            confidence=0.9,
+            timestamp=current_time,
+            source="visual_engine",
+            validity=True,
+            raw_data=metrics
+        )

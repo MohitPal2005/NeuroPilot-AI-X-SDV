@@ -30,7 +30,8 @@ def background_telemetry_worker():
         # Save the frame so the web can see it
         global_frame = frame.copy()
         
-        raw_telemetry = vision_engine.process_frame(frame)
+        visual_output = vision_engine.process_frame(frame)
+        raw_telemetry = visual_output.raw_data
         cognitive_assessment = cognitive_engine.compute_csi(raw_telemetry)
         
         unified_state = {**raw_telemetry, **cognitive_assessment, "timestamp": time.time()}

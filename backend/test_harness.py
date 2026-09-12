@@ -40,7 +40,8 @@ def run_harness(source=0, output_csv="vision_telemetry_log.csv"):
 
             # Process frame
             try:
-                telemetry = engine.process_frame(frame)
+                visual_output = engine.process_frame(frame)
+                telemetry = visual_output.raw_data
                 crash_status = "OK"
             except Exception as e:
                 print(f"Exception during processing: {e}")
