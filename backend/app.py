@@ -11,6 +11,7 @@ CORS(app)
 
 camera = cv2.VideoCapture(0)
 vision_engine = AdvancedVisionEngine()
+cognitive_engine = CognitiveStateEngine()
 
 global_telemetry = {}
 historical_buffer = []
@@ -30,7 +31,7 @@ def background_telemetry_worker():
         global_frame = frame.copy()
         
         raw_telemetry = vision_engine.process_frame(frame)
-        cognitive_assessment = CognitiveStateEngine.compute_csi(raw_telemetry)
+        cognitive_assessment = cognitive_engine.compute_csi(raw_telemetry)
         
         unified_state = {**raw_telemetry, **cognitive_assessment, "timestamp": time.time()}
         global_telemetry = unified_state

@@ -43,13 +43,14 @@ class AdvancedVisionEngine:
 
     def _estimate_head_pose(self, landmarks, width, height):
         # Selected standard 3D model landmarks for 2D-to-3D projection matrix
+        # Y-coordinates are negated to match OpenCV's Y-down image coordinate system
         model_points = np.array([
             (0.0, 0.0, 0.0),             # Nose tip
-            (0.0, -330.0, -65.0),        # Chin
-            (-225.0, 170.0, -135.0),     # Left eye corner
-            (225.0, 170.0, -135.0),      # Right eye corner
-            (-150.0, -150.0, -125.0),    # Left mouth corner
-            (150.0, -150.0, -125.0)      # Right mouth corner
+            (0.0, 330.0, -65.0),         # Chin
+            (-225.0, -170.0, -135.0),    # Left eye corner
+            (225.0, -170.0, -135.0),     # Right eye corner
+            (-150.0, 150.0, -125.0),     # Left mouth corner
+            (150.0, 150.0, -125.0)       # Right mouth corner
         ])
         
         # Map back to image space
@@ -65,7 +66,8 @@ class AdvancedVisionEngine:
         rmat, _ = cv2.Rodrigues(rotation_vector)
         angles, _, _, _, _, _ = cv2.RQDecomp3x3(rmat)
         
-        return angles[0] * 360, angles[1] * 360 # Pitch, Yaw
+        # RQDecomp3x3 returns angles in degrees directly
+        return angles[0], angles[1] # Pitch, Yaw
 
     def process_frame(self, frame):
         h, w, _ = frame.shape
