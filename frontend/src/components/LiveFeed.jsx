@@ -4,6 +4,7 @@ export default function LiveFeed({ telemetry }) {
   const getRiskColor = (zone) => {
     if (zone === 'Safe') return 'text-emerald-400 border-emerald-500/30 bg-emerald-500/5';
     if (zone === 'Attention Required' || zone === 'Cognitive Overload') return 'text-amber-400 border-amber-500/30 bg-amber-500/5';
+    if (zone === 'No Data (Calibrating)') return 'text-slate-400 border-slate-500/30 bg-slate-500/5';
     return 'text-rose-400 border-rose-500/30 bg-rose-500/5';
   };
 

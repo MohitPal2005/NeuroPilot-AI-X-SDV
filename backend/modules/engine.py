@@ -9,34 +9,26 @@ class CognitiveStateEngine:
         self.last_zone = "Safe"
         self.last_csi = config.CSI_BASE
 
-    def compute_csi(self, telemetry):
-        if not telemetry.get("face_detected", False):
-            return {"csi": 50, "zone": "Calibrating (No Face)"}
-
-        csi = config.CSI_BASE
+    def compute_csi(self, sensor_outputs):
+        total_confidence = 0.0
+        weighted_score_sum = 0.0
         
-        # Accumulate risk metrics via visual and attention feedback loops
-        gaze_away = telemetry.get("gaze_away_duration", 0.0)
-        eye_closed = telemetry.get("eye_closed_duration", 0.0)
-        yaw = abs(telemetry.get("yaw", 0.0))
-        pitch = abs(telemetry.get("pitch", 0.0))
-        bpm = telemetry.get("bpm", 12)
+        for output in sensor_outputs:
+            # TODO: revisit in Session 10 — sensor-degradation logic should redistribute confidence/weights when a sensor becomes invalid instead of unconditionally aborting to No Data.
+            if not output.validity:
+                # If any sensor is invalid (e.g. vision lost face tracking), 
+                # we do not have enough calibrated data to produce a reliable fusion state.
+                return {"csi": 0, "zone": "No Data (Calibrating)"}
+                
+            weight = output.confidence
+            weighted_score_sum += output.score * weight
+            total_confidence += weight
 
-        # 1. Distraction compounding logic
-        if gaze_away > 0:
-            csi += min(gaze_away * config.CSI_DISTRACTION_MULTIPLIER, config.CSI_DISTRACTION_MAX)
-
-        # 2. Drowsiness/Fatigue compounding logic
-        if eye_closed > config.CSI_DROWSINESS_MIN_DURATION:
-            csi += min(eye_closed * config.CSI_DROWSINESS_MULTIPLIER, config.CSI_DROWSINESS_MAX)
-
-        # 3. Posture deviation modifiers
-        if yaw > config.CSI_YAW_THRESHOLD: csi += config.CSI_YAW_PENALTY
-        if pitch > config.CSI_PITCH_THRESHOLD: csi += config.CSI_PITCH_PENALTY
-
-        # 4. Stress indicators via physiological anomaly simulation (unusual blink patterns)
-        if bpm > config.CSI_BPM_HIGH or bpm < config.CSI_BPM_LOW:
-            csi += config.CSI_BPM_PENALTY
+        if total_confidence == 0:
+            return {"csi": 0, "zone": "No Data (Calibrating)"}
+            
+        fused_score = weighted_score_sum / total_confidence
+        csi = config.CSI_BASE + (fused_score * 100.0)
 
         # Cap output within explicit bounds [0 - 100]
         final_csi = min(max(int(csi), 0), 100)

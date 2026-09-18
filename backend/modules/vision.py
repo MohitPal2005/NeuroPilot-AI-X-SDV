@@ -5,7 +5,7 @@ import time
 import mediapipe as mp
 from mediapipe.python.solutions import face_mesh as mp_face_mesh
 
-from config import EAR_THRESHOLD, GAZE_LEFT_THRESH, GAZE_RIGHT_THRESH, YAW_THRESHOLD, PITCH_THRESHOLD
+import config
 from modules.models import SensorOutput
 
 class AdvancedVisionEngine:
@@ -110,7 +110,7 @@ class AdvancedVisionEngine:
         avg_ear = (ear_l + ear_r) / 2.0
         metrics["ear"] = round(avg_ear, 3)
 
-        if avg_ear < EAR_THRESHOLD:
+        if avg_ear < config.EAR_THRESHOLD:
             if not self.eye_closed_start_time:
                 self.eye_closed_start_time = current_time
             metrics["eye_closed_duration"] = round(current_time - self.eye_closed_start_time, 2)
@@ -134,15 +134,26 @@ class AdvancedVisionEngine:
         # Compute normalized positional index within eye contours
         gaze_ratio = (iris_center_x - eye_left_edge_x) / max((eye_right_edge_x - eye_left_edge_x), 0.001)
         
-        if gaze_ratio < GAZE_LEFT_THRESH:
+        # Determine macro-gaze (head orientation) first
+        if yaw > config.GAZE_HEAD_YAW_THRESH:
             metrics["gaze_direction"] = "Left"
-        elif gaze_ratio > GAZE_RIGHT_THRESH:
+        elif yaw < -config.GAZE_HEAD_YAW_THRESH:
             metrics["gaze_direction"] = "Right"
+        elif pitch > config.GAZE_HEAD_PITCH_THRESH:
+            metrics["gaze_direction"] = "Down"
+        elif pitch < -config.GAZE_HEAD_PITCH_THRESH:
+            metrics["gaze_direction"] = "Up"
         else:
-            metrics["gaze_direction"] = "Center"
+            # Fallback to micro-gaze (eye tracking) if head is relatively centered
+            if gaze_ratio < config.GAZE_LEFT_THRESH:
+                metrics["gaze_direction"] = "Left"
+            elif gaze_ratio > config.GAZE_RIGHT_THRESH:
+                metrics["gaze_direction"] = "Right"
+            else:
+                metrics["gaze_direction"] = "Center"
 
         # Track distraction intervals based on head pose or gaze vector deviation
-        is_distracted = (metrics["gaze_direction"] != "Center") or (abs(yaw) > YAW_THRESHOLD) or (abs(pitch) > PITCH_THRESHOLD)
+        is_distracted = (metrics["gaze_direction"] != "Center") or (abs(yaw) > config.YAW_THRESHOLD) or (abs(pitch) > config.PITCH_THRESHOLD)
         if is_distracted:
             if not self.gaze_away_start_time:
                 self.gaze_away_start_time = current_time
@@ -150,7 +161,25 @@ class AdvancedVisionEngine:
         else:
             self.gaze_away_start_time = None
 
-        visual_score = 0.5 if (metrics.get("gaze_away_duration", 0) > 0 or metrics.get("eye_closed_duration", 0) > 0) else 0.1
+        # 4. Calculate Risk Penalties
+        risk_score = 0.0
+        gaze_away = metrics.get("gaze_away_duration", 0.0)
+        if gaze_away > 0:
+            risk_score += min(gaze_away * config.CSI_DISTRACTION_MULTIPLIER, config.CSI_DISTRACTION_MAX)
+
+        eye_closed = metrics.get("eye_closed_duration", 0.0)
+        if eye_closed > config.CSI_DROWSINESS_MIN_DURATION:
+            risk_score += min(eye_closed * config.CSI_DROWSINESS_MULTIPLIER, config.CSI_DROWSINESS_MAX)
+
+        if abs(yaw) > config.CSI_YAW_THRESHOLD: risk_score += config.CSI_YAW_PENALTY
+        if abs(pitch) > config.CSI_PITCH_THRESHOLD: risk_score += config.CSI_PITCH_PENALTY
+
+        if self.current_bpm > config.CSI_BPM_HIGH or self.current_bpm < config.CSI_BPM_LOW:
+            risk_score += config.CSI_BPM_PENALTY
+
+        # Normalize score to 0.0 - 1.0 based on a max expected penalty of 100
+        visual_score = min(risk_score / 100.0, 1.0)
+
         return SensorOutput(
             score=visual_score,
             confidence=0.9,

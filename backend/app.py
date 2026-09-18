@@ -5,12 +5,16 @@ import threading
 import time
 from modules.vision import AdvancedVisionEngine
 from modules.engine import CognitiveStateEngine
+from modules.acoustic import AcousticSensor
+from modules.kinematic import KinematicSensor
 
 app = Flask(__name__)
 CORS(app)
 
 camera = cv2.VideoCapture(0)
 vision_engine = AdvancedVisionEngine()
+acoustic_engine = AcousticSensor()
+kinematic_engine = KinematicSensor()
 cognitive_engine = CognitiveStateEngine()
 
 global_telemetry = {}
@@ -31,8 +35,17 @@ def background_telemetry_worker():
         global_frame = frame.copy()
         
         visual_output = vision_engine.process_frame(frame)
-        raw_telemetry = visual_output.raw_data
-        cognitive_assessment = cognitive_engine.compute_csi(raw_telemetry)
+        acoustic_output = acoustic_engine.process_audio()
+        kinematic_output = kinematic_engine.process_telemetry()
+        
+        cognitive_assessment = cognitive_engine.compute_csi([visual_output, acoustic_output, kinematic_output])
+        
+        # Merge raw data from all sensors for backward compatibility and logging
+        raw_telemetry = {
+            **visual_output.raw_data,
+            **acoustic_output.raw_data,
+            **kinematic_output.raw_data
+        }
         
         unified_state = {**raw_telemetry, **cognitive_assessment, "timestamp": time.time()}
         global_telemetry = unified_state
