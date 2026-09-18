@@ -39,8 +39,10 @@ class AdvancedVisionEngine:
         v1 = np.linalg.norm(coords[1] - coords[5])
         v2 = np.linalg.norm(coords[2] - coords[4])
         # Distance between horizontal eye landmarks
-        h = np.linalg.norm(coords[0] - coords[3])
-        return (v1 + v2) / (2.0 * h)
+        eye_width = np.linalg.norm(coords[0] - coords[3])
+        if eye_width < 1e-6:
+            return None
+        return (v1 + v2) / (2.0 * eye_width)
 
     def _estimate_head_pose(self, landmarks, width, height):
         # Selected standard 3D model landmarks for 2D-to-3D projection matrix
@@ -107,6 +109,19 @@ class AdvancedVisionEngine:
         # 1. EAR & Eye Closure tracking
         ear_l = self._calculate_ear(landmarks, self.LEFT_EYE, w, h)
         ear_r = self._calculate_ear(landmarks, self.RIGHT_EYE, w, h)
+        
+        if ear_l is None or ear_r is None:
+            if self.eye_closed_start_time: self.eye_closed_start_time = None
+            if self.gaze_away_start_time: self.gaze_away_start_time = None
+            return SensorOutput(
+                score=0.0,
+                confidence=0.0,
+                timestamp=current_time,
+                source="visual_engine",
+                validity=False,
+                raw_data=metrics
+            )
+            
         avg_ear = (ear_l + ear_r) / 2.0
         metrics["ear"] = round(avg_ear, 3)
 

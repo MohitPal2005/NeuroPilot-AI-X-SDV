@@ -44,6 +44,10 @@ def test_visual_sensor_gaze_orientation(monkeypatch):
     # Left iris
     mock_lms[474] = Mock(x=0.5, y=0.5) # iris center (LEFT_IRIS[0])
     
+    # Right eye edges (to avoid degenerate EAR division by zero)
+    mock_lms[33] = Mock(x=0.7, y=0.5) # right edge (RIGHT_EYE[0])
+    mock_lms[133] = Mock(x=0.9, y=0.5) # left edge (RIGHT_EYE[3])
+    
     dummy_landmarks.landmark = mock_lms
     dummy_results.multi_face_landmarks = [dummy_landmarks]
     
@@ -78,6 +82,30 @@ def test_visual_sensor_gaze_orientation(monkeypatch):
     pitch_val, yaw_val = 0.0, 0.0
     output = engine.process_frame(frame)
     assert output.raw_data["gaze_direction"] == "Center"
+
+def test_visual_sensor_degenerate_ear():
+    engine = AdvancedVisionEngine()
+    
+    from unittest.mock import Mock
+    
+    dummy_results = Mock()
+    dummy_landmarks = Mock()
+    # Create mock landmarks where eye edges are identical (h = 0)
+    mock_lms = [Mock(x=0.5, y=0.5) for _ in range(478)]
+    
+    dummy_landmarks.landmark = mock_lms
+    dummy_results.multi_face_landmarks = [dummy_landmarks]
+    
+    mock_face_mesh = Mock()
+    mock_face_mesh.process.return_value = dummy_results
+    engine.face_mesh = mock_face_mesh
+    
+    frame = np.zeros((480, 640, 3), dtype=np.uint8)
+    
+    output = engine.process_frame(frame)
+    # Confirm process_frame aborts gracefully and returns standard fallback
+    assert output.validity is False
+    assert output.confidence == 0.0
 
 def test_acoustic_sensor_contract():
     sensor = AcousticSensor()
