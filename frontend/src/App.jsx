@@ -14,7 +14,7 @@ export default function App() {
         .then(data => setTelemetry(data))
         .catch(err => console.error("Backend offline: ", err));
     };
-    const pollInterval = setInterval(handleFetch, 100);
+    const pollInterval = setInterval(handleFetch, 300);
     return () => clearInterval(pollInterval);
   }, []);
 
