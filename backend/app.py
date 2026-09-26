@@ -6,20 +6,44 @@ import time
 from modules.vision import AdvancedVisionEngine
 from modules.engine import CognitiveStateEngine
 from modules.acoustic import AcousticSensor
+from modules.acoustic_capture import AcousticCapture
 from modules.kinematic import KinematicSensor
+from modules.models import SensorOutput
 
 app = Flask(__name__)
 CORS(app)
 
 camera = cv2.VideoCapture(0)
 vision_engine = AdvancedVisionEngine()
-acoustic_engine = AcousticSensor()
+acoustic_capture = AcousticCapture(target_sr=16000)
+if not acoustic_capture.start():
+    print(f"WARNING: Failed to start microphone stream (Error: {acoustic_capture.init_error}). Acoustic pipeline will run with empty/dummy audio.")
+acoustic_engine = AcousticSensor(acoustic_capture)
 kinematic_engine = KinematicSensor()
 cognitive_engine = CognitiveStateEngine()
 
 global_telemetry = {}
 historical_buffer = []
 global_frame = None  # New variable to hold the live video frame
+
+latest_acoustic_output = SensorOutput(
+    score=0.0,
+    confidence=0.0,
+    timestamp=time.time(),
+    source="acoustic_sensor",
+    validity=False,
+    raw_data={"arousal": 0.0, "dominance": 0.0, "valence": 0.0, "status": "initializing"}
+)
+
+def background_acoustic_worker():
+    global latest_acoustic_output
+    while True:
+        try:
+            latest_acoustic_output = acoustic_engine.process_audio()
+        except Exception as e:
+            print(f"Acoustic worker error: {e}")
+        # Process audio already takes ~1.5s, add small sleep to avoid tight loop on failure
+        time.sleep(0.5)
 
 def background_telemetry_worker():
     global global_telemetry, historical_buffer, global_frame
@@ -35,7 +59,7 @@ def background_telemetry_worker():
         global_frame = frame.copy()
         
         visual_output = vision_engine.process_frame(frame)
-        acoustic_output = acoustic_engine.process_audio()
+        acoustic_output = latest_acoustic_output
         kinematic_output = kinematic_engine.process_telemetry()
         
         cognitive_assessment = cognitive_engine.compute_csi([visual_output, acoustic_output, kinematic_output])
@@ -84,6 +108,9 @@ def get_analytics():
     return jsonify(historical_buffer[-40:])
 
 if __name__ == '__main__':
+    acoustic_worker = threading.Thread(target=background_acoustic_worker, daemon=True)
+    acoustic_worker.start()
+    
     worker = threading.Thread(target=background_telemetry_worker, daemon=True)
     worker.start()
     app.run(host='0.0.0.0', port=5000, debug=False)

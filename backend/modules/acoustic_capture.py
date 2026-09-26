@@ -3,7 +3,6 @@ import librosa
 import webrtcvad
 import sounddevice as sd
 import queue
-import threading
 
 class AcousticCapture:
     """
