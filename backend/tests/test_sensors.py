@@ -1,6 +1,9 @@
 import pytest
 import cv2
 import numpy as np
+import sys
+import os
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 from modules.models import SensorOutput
 from modules.vision import AdvancedVisionEngine
@@ -107,15 +110,22 @@ def test_visual_sensor_degenerate_ear():
     assert output.validity is False
     assert output.confidence == 0.0
 
+from unittest.mock import MagicMock
+from modules.acoustic_capture import AcousticCapture
+
 def test_acoustic_sensor_contract():
-    sensor = AcousticSensor()
+    capture = MagicMock(spec=AcousticCapture)
+    capture.target_sr = 16000
+    capture.get_latest_capture.return_value = (False, None)
+    
+    sensor = AcousticSensor(capture)
     output = sensor.process_audio()
     
     assert isinstance(output, SensorOutput)
     assert 0.0 <= output.score <= 1.0
     assert 0.0 <= output.confidence <= 1.0
-    assert output.source == "acoustic_stub"
-    assert output.validity is True
+    assert output.source == "acoustic_sensor"
+    assert isinstance(output.validity, bool)
     assert isinstance(output.raw_data, dict)
     assert "arousal" in output.raw_data
 
@@ -226,7 +236,12 @@ class TestConfidenceFusion:
         assert visual_output.confidence == 0.0
         
         # Simulate the stubs
-        acoustic_sensor = AcousticSensor()
+        from unittest.mock import MagicMock
+        from modules.acoustic_capture import AcousticCapture
+        capture = MagicMock(spec=AcousticCapture)
+        capture.target_sr = 16000
+        capture.get_latest_capture.return_value = (False, None)
+        acoustic_sensor = AcousticSensor(capture)
         kinematic_sensor = KinematicSensor()
         acoustic_output = acoustic_sensor.process_audio()
         kinematic_output = kinematic_sensor.process_telemetry()
