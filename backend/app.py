@@ -9,6 +9,8 @@ from modules.acoustic import AcousticSensor
 from modules.acoustic_capture import AcousticCapture
 from modules.kinematic import KinematicSensor
 from modules.models import SensorOutput
+from modules.simulated_steering import SimulatedSteeringGenerator
+import itertools
 
 app = Flask(__name__)
 CORS(app)
@@ -47,6 +49,12 @@ def background_acoustic_worker():
 
 def background_telemetry_worker():
     global global_telemetry, historical_buffer, global_frame
+    
+    # Create an infinite stream of normal SIMULATED steering data
+    steering_gen = SimulatedSteeringGenerator(sample_rate_hz=15.0)
+    simulated_normal_data = steering_gen.generate_simulated_normal_data(60.0)
+    steering_stream = itertools.cycle(simulated_normal_data)
+    
     while True:
         success, frame = camera.read()
         if not success:
@@ -60,7 +68,10 @@ def background_telemetry_worker():
         
         visual_output = vision_engine.process_frame(frame)
         acoustic_output = latest_acoustic_output
-        kinematic_output = kinematic_engine.process_telemetry()
+        
+        # Pull the next simulated angle and pass it in
+        current_angle = next(steering_stream)
+        kinematic_output = kinematic_engine.process_telemetry(current_angle)
         
         cognitive_assessment = cognitive_engine.compute_csi([visual_output, acoustic_output, kinematic_output])
         

@@ -131,15 +131,15 @@ def test_acoustic_sensor_contract():
 
 def test_kinematic_sensor_contract():
     sensor = KinematicSensor()
-    output = sensor.process_telemetry()
+    # Provide one sample
+    output = sensor.process_telemetry(0.0)
     
     assert isinstance(output, SensorOutput)
     assert 0.0 <= output.score <= 1.0
     assert 0.0 <= output.confidence <= 1.0
-    assert output.source == "kinematic_stub"
-    assert output.validity is True
+    assert output.source == "kinematic_sensor"
+    assert output.validity is False # Buffering
     assert isinstance(output.raw_data, dict)
-    assert "jerk" in output.raw_data
 
 from modules.engine import CognitiveStateEngine
 
