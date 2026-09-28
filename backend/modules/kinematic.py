@@ -13,6 +13,10 @@ class KinematicSensor:
         self.model_load_failed = False
         
         try:
+            # KNOWN LIMITATION: Per-Driver Baseline
+            # The original design intent was a per-driver learned baseline.
+            # Currently, this model is trained once on simulated generic "normal" driving,
+            # and is NOT adapted to any individual driver's own baseline behavior.
             # We train the baseline model in memory instead of loading a serialized model.
             generator = SimulatedSteeringGenerator(sample_rate_hz=self.sample_rate_hz, random_seed=42)
             # Generate 5 minutes of SIMULATED normal driving data for training the baseline
