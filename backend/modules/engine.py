@@ -14,11 +14,8 @@ class CognitiveStateEngine:
         weighted_score_sum = 0.0
         
         for output in sensor_outputs:
-            # TODO: revisit in Session 10 — sensor-degradation logic should redistribute confidence/weights when a sensor becomes invalid instead of unconditionally aborting to No Data.
             if not output.validity:
-                # If any sensor is invalid (e.g. vision lost face tracking), 
-                # we do not have enough calibrated data to produce a reliable fusion state.
-                return {"csi": 0, "zone": "No Data (Calibrating)"}
+                continue
                 
             weight = output.confidence
             weighted_score_sum += output.score * weight

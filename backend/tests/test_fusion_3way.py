@@ -50,10 +50,12 @@ def test_3c_two_valid_one_invalid_buffering():
         SensorOutput(score=0.0, confidence=0.0, source="kinematic_sensor", validity=False, raw_data={"status": "buffering"})
     ]
     result = engine.compute_csi(outputs)
-    # Because of the ANY-invalid abort logic, CSI should drop to 0 / No Data
+    # With the all-invalid abort logic, the fused CSI should now reflect the valid sensors
+    # Fused score = (0.9*0.9 + 0.9*0.9) / (0.9+0.9) = 1.62 / 1.8 = 0.9
+    # CSI = 10 (base) + 90 = 100
     print(f"\n[3c] Actual Result: {result}")
-    assert result["csi"] == 0
-    assert result["zone"] == "No Data (Calibrating)"
+    assert result["csi"] == 100
+    assert result["zone"] == "Critical Risk"
 
 def test_3d_all_invalid():
     engine = CognitiveStateEngine()
