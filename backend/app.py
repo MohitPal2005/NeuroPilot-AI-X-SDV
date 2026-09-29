@@ -47,6 +47,13 @@ def background_acoustic_worker():
         # Process audio already takes ~1.5s, add small sleep to avoid tight loop on failure
         time.sleep(0.5)
 
+def generate_sensor_status(visual_output, acoustic_output, kinematic_output):
+    return {
+        "visual": "active" if visual_output.validity else "degraded",
+        "acoustic": "active" if acoustic_output.validity else "degraded",
+        "kinematic": "active" if kinematic_output.validity else ("buffering" if kinematic_output.raw_data.get("status") == "buffering" else "degraded")
+    }
+
 def background_telemetry_worker():
     global global_telemetry, historical_buffer, global_frame
     
@@ -75,11 +82,14 @@ def background_telemetry_worker():
         
         cognitive_assessment = cognitive_engine.compute_csi([visual_output, acoustic_output, kinematic_output])
         
+        sensor_status = generate_sensor_status(visual_output, acoustic_output, kinematic_output)
+
         # Merge raw data from all sensors for backward compatibility and logging
         raw_telemetry = {
             **visual_output.raw_data,
             **acoustic_output.raw_data,
-            **kinematic_output.raw_data
+            **kinematic_output.raw_data,
+            "sensor_status": sensor_status
         }
         
         unified_state = {**raw_telemetry, **cognitive_assessment, "timestamp": time.time()}

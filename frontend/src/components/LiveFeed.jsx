@@ -8,11 +8,22 @@ export default function LiveFeed({ telemetry }) {
     return 'text-rose-400 border-rose-500/30 bg-rose-500/5';
   };
 
+  const sensorStatus = telemetry.sensor_status || { visual: 'active', acoustic: 'active', kinematic: 'active' };
+  const activeCount = Object.values(sensorStatus).filter(s => s === 'active').length;
+  const totalCount = Object.keys(sensorStatus).length;
+
   return (
     <div className="bg-slate-900/40 border border-slate-800/80 rounded-2xl p-4 flex flex-col gap-4 backdrop-blur-md">
-      <h3 className="text-xs font-bold uppercase tracking-widest text-slate-400 border-b border-slate-800 pb-2">
-        In-Cabin Sensor Matrix
-      </h3>
+      <div className="border-b border-slate-800 pb-2 flex flex-col gap-1.5">
+        <h3 className="text-xs font-bold uppercase tracking-widest text-slate-400">
+          In-Cabin Sensor Matrix
+        </h3>
+        <div className="flex justify-between text-[9px] uppercase tracking-wider font-mono">
+          <span className={sensorStatus.visual === 'active' ? 'text-emerald-400' : 'text-rose-400'}>Vis: {sensorStatus.visual}</span>
+          <span className={sensorStatus.acoustic === 'active' ? 'text-emerald-400' : 'text-rose-400'}>Aud: {sensorStatus.acoustic}</span>
+          <span className={sensorStatus.kinematic === 'active' ? 'text-emerald-400' : (sensorStatus.kinematic === 'buffering' ? 'text-amber-400' : 'text-rose-400')}>Kin: {sensorStatus.kinematic}</span>
+        </div>
+      </div>
       
       {/* --- UPGRADED LIVE VIDEO FEED --- */}
       <div className="relative aspect-video bg-slate-950 rounded-xl overflow-hidden border border-slate-800 flex items-center justify-center">
@@ -46,6 +57,7 @@ export default function LiveFeed({ telemetry }) {
         <div className="text-[10px] tracking-widest uppercase font-bold opacity-70 mb-1">Cognitive Evaluation</div>
         <div className="text-3xl font-black font-mono">{telemetry.csi || 0}</div>
         <div className="text-xs font-bold tracking-wide mt-1 uppercase">{telemetry.zone || 'Calibrating'}</div>
+        <div className="text-[9px] font-mono mt-2 opacity-60">Fused from {activeCount}/{totalCount} sensors</div>
       </div>
     </div>
   );
