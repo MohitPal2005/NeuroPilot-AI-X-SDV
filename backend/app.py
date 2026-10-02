@@ -10,6 +10,7 @@ from modules.acoustic_capture import AcousticCapture
 from modules.kinematic import KinematicSensor
 from modules.models import SensorOutput
 from modules.simulated_steering import SimulatedSteeringGenerator
+from modules.recovery_engine import RecoveryEngine
 import itertools
 
 app = Flask(__name__)
@@ -23,6 +24,7 @@ if not acoustic_capture.start():
 acoustic_engine = AcousticSensor(acoustic_capture)
 kinematic_engine = KinematicSensor()
 cognitive_engine = CognitiveStateEngine()
+recovery_engine = RecoveryEngine()
 
 global_telemetry = {}
 historical_buffer = []
@@ -82,6 +84,8 @@ def background_telemetry_worker():
         
         cognitive_assessment = cognitive_engine.compute_csi([visual_output, acoustic_output, kinematic_output])
         
+        recovery_status = recovery_engine.process(cognitive_assessment, [visual_output, acoustic_output, kinematic_output])
+        
         sensor_status = generate_sensor_status(visual_output, acoustic_output, kinematic_output)
 
         # Merge raw data from all sensors for backward compatibility and logging
@@ -89,7 +93,8 @@ def background_telemetry_worker():
             **visual_output.raw_data,
             **acoustic_output.raw_data,
             **kinematic_output.raw_data,
-            "sensor_status": sensor_status
+            "sensor_status": sensor_status,
+            "recovery_engine": recovery_status
         }
         
         unified_state = {**raw_telemetry, **cognitive_assessment, "timestamp": time.time()}
