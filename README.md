@@ -24,6 +24,36 @@ VIT Bhopal University
 
 ---
 
+<h1 align="center">🎥 WATCH THE NEUROPILOT POC</h1>
+
+<p align="center">
+
+<a href="https://drive.google.com/file/d/1B-WgzJXLcikhTZGjcROLTIIkPK4l9vz5/view?usp=drive_link">
+
+<img src="https://img.shields.io/badge/▶%20WATCH%20LIVE%20POC%20DEMONSTRATION-4285F4?style=for-the-badge&logo=google-drive&logoColor=white" alt="Watch NeuroPilot POC Demo">
+
+</a>
+
+</p>
+
+<p align="center">
+<b>See NeuroPilot in action: Multimodal Cognitive Sensing → CSI → Intervention → Recovery</b>
+</p>
+
+<p align="center">
+<b>🎯 Eye State</b> &nbsp; • &nbsp;
+<b>🧠 Cognitive Safety Index</b> &nbsp; • &nbsp;
+<b>🎙️ Acoustic Channel</b> &nbsp; • &nbsp;
+<b>🚗 Kinematic Channel</b> &nbsp; • &nbsp;
+<b>🔄 Recovery Engine</b>
+</p>
+
+<p align="center">
+<i>POC demonstration — current implementation and simulated components are explicitly identified in the project documentation.</i>
+</p>
+
+---
+
 ## Table of Contents
 
 - [Executive Summary](#executive-summary)
