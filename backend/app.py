@@ -3,6 +3,8 @@ from flask_cors import CORS
 import cv2
 import threading
 import time
+import os
+import csv
 from modules.vision import AdvancedVisionEngine
 from modules.engine import CognitiveStateEngine
 from modules.acoustic import AcousticSensor
@@ -29,6 +31,8 @@ recovery_engine = RecoveryEngine()
 global_telemetry = {}
 historical_buffer = []
 global_frame = None  # New variable to hold the live video frame
+global_ground_truth_label = "unlabeled"
+ground_truth_lock = threading.Lock()
 
 latest_acoustic_output = SensorOutput(
     score=0.0,
@@ -38,6 +42,25 @@ latest_acoustic_output = SensorOutput(
     validity=False,
     raw_data={"arousal": 0.0, "dominance": 0.0, "valence": 0.0, "status": "initializing"}
 )
+
+def set_ground_truth(label):
+    global global_ground_truth_label
+    with ground_truth_lock:
+        global_ground_truth_label = label
+    print(f"[GROUND TRUTH] -> {label}")
+
+def keyboard_listener_worker():
+    try:
+        import keyboard
+        keyboard.add_hotkey('1', lambda: set_ground_truth("normal"))
+        keyboard.add_hotkey('2', lambda: set_ground_truth("drowsy"))
+        keyboard.add_hotkey('3', lambda: set_ground_truth("distracted"))
+        keyboard.add_hotkey('0', lambda: set_ground_truth("unlabeled"))
+        keyboard.wait()
+    except ImportError:
+        print("WARNING: 'keyboard' library not found. Ground truth labeling will not work. Please run 'pip install keyboard'.")
+    except Exception as e:
+        print(f"Keyboard listener error: {e}")
 
 def background_acoustic_worker():
     global latest_acoustic_output
@@ -59,6 +82,23 @@ def generate_sensor_status(visual_output, acoustic_output, kinematic_output):
 def background_telemetry_worker():
     global global_telemetry, historical_buffer, global_frame
     
+    log_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'logs')
+    os.makedirs(log_dir, exist_ok=True)
+    log_file_path = os.path.join(log_dir, 'pipeline_log.csv')
+    
+    log_file = open(log_file_path, mode='a', newline='')
+    csv_writer = csv.writer(log_file)
+    if os.path.getsize(log_file_path) == 0:
+        csv_writer.writerow([
+            "timestamp", "vision_score", "vision_confidence", "vision_validity",
+            "acoustic_score", "acoustic_confidence", "acoustic_validity",
+            "kinematic_score", "kinematic_confidence", "kinematic_validity",
+            "fused_csi", "zone", "recovery_state", "trigger_reason", "ground_truth_label"
+        ])
+        log_file.flush()
+    
+    row_count = 0
+
     # Create an infinite stream of normal SIMULATED steering data
     steering_gen = SimulatedSteeringGenerator(sample_rate_hz=15.0)
     simulated_normal_data = steering_gen.generate_simulated_normal_data(60.0)
@@ -104,6 +144,38 @@ def background_telemetry_worker():
         if len(historical_buffer) > 200:
             historical_buffer.pop(0)
             
+        def safe_get(obj, attr):
+            if obj is None: return ""
+            val = getattr(obj, attr, None)
+            return val if val is not None else ""
+
+        current_time = time.time()
+        
+        with ground_truth_lock:
+            current_label = global_ground_truth_label
+            
+        csv_writer.writerow([
+            current_time,
+            safe_get(visual_output, 'score'),
+            safe_get(visual_output, 'confidence'),
+            safe_get(visual_output, 'validity'),
+            safe_get(acoustic_output, 'score'),
+            safe_get(acoustic_output, 'confidence'),
+            safe_get(acoustic_output, 'validity'),
+            safe_get(kinematic_output, 'score'),
+            safe_get(kinematic_output, 'confidence'),
+            safe_get(kinematic_output, 'validity'),
+            cognitive_assessment.get("csi", "") if cognitive_assessment else "",
+            cognitive_assessment.get("zone", "") if cognitive_assessment else "",
+            recovery_status.get("state", "") if recovery_status else "",
+            recovery_status.get("trigger_reason", "") if recovery_status else "",
+            current_label
+        ])
+        
+        row_count += 1
+        if row_count % 30 == 0:
+            log_file.flush()
+            
         time.sleep(0.03)
 
 # --- NEW VIDEO STREAMING ENDPOINT ---
@@ -134,6 +206,9 @@ def get_analytics():
     return jsonify(historical_buffer[-40:])
 
 if __name__ == '__main__':
+    keyboard_worker = threading.Thread(target=keyboard_listener_worker, daemon=True)
+    keyboard_worker.start()
+    
     acoustic_worker = threading.Thread(target=background_acoustic_worker, daemon=True)
     acoustic_worker.start()
     
