@@ -1,0 +1,290 @@
+================================================================================
+NEUROPILOT SDV -- PIPELINE ACCURACY & LATENCY BENCHMARK REPORT
+================================================================================
+Log File  : C:\neuropilot-ai-x-sdv\backend\logs\pipeline_log.csv
+Generated : 2026-10-16T11:41:41
+
+--------------------------------------------------------------------------------
+1. DATASET FILTERING & ROW COUNTS (MEASURED)
+--------------------------------------------------------------------------------
+Total raw rows in pipeline_log.csv : 960
+Dropped transition rows (unlabeled): 178
+Total valid ground-truth rows      : 782
+
+Rows per individual ground-truth class (labeled rows only):
+  'normal    ' :   340 rows (43.48%)
+  'drowsy    ' :   229 rows (29.28%)
+  'distracted' :   213 rows (27.24%)
+
+Grouped binary ground-truth classes:
+  'normal'  :   340 rows (43.48%)
+  'at-risk' :   442 rows (56.52%)  (drowsy + distracted)
+  Total     :   782 rows
+
+--------------------------------------------------------------------------------
+2. CROSS-TABULATION: ground_truth_label vs recovery_state (LABELED ROWS, MEASURED)
+--------------------------------------------------------------------------------
+  ground_truth   | IDLE           | INTERVENING    | RECOVERED      | Total         
+  ----------------------------------------------------------------------------------
+  normal         | 298            | 2              | 40             | 340           
+  drowsy         | 229            | 0              | 0              | 229           
+  distracted     | 67             | 146            | 0              | 213           
+  Total          | 594            | 148            | 40             | 782           
+
+--------------------------------------------------------------------------------
+3. CROSS-TABULATION: ground_truth_label vs trigger_reason (LABELED ROWS, MEASURED)
+--------------------------------------------------------------------------------
+  ground_truth   | (empty)        | HEAD           | KINEMATIC      | Total         
+  ----------------------------------------------------------------------------------
+  normal         | 338            | 0              | 2              | 340           
+  drowsy         | 229            | 0              | 0              | 229           
+  distracted     | 67             | 146            | 0              | 213           
+  Total          | 634            | 146            | 2              | 782           
+
+--------------------------------------------------------------------------------
+4. CROSS-TABULATION: ground_truth_label vs ZONE (LABELED ROWS, incl. Critical Risk)
+--------------------------------------------------------------------------------
+  ground_truth     | Safe             | Attention Requ   | Cognitive Over   | High Risk        | Critical Risk    | Total           
+  ----------------------------------------------------------------------------------------------------------------------------------
+  normal           | 18               | 318              | 4                | 0                | 0                | 340             
+  drowsy           | 0                | 224              | 5                | 0                | 0                | 229             
+  distracted       | 0                | 81               | 132              | 0                | 0                | 213             
+  Total            | 18               | 623              | 141              | 0                | 0                | 782             
+
+Note: 'Critical Risk' column included for completeness; 0 rows observed in this log
+      (max CSI = 64; Critical Risk would require CSI > 80).
+
+--------------------------------------------------------------------------------
+5. PREDICTION MAPPING SPECIFICATION (BOTH EVALUATIONS)
+--------------------------------------------------------------------------------
+EVALUATION A (zone-based) -- zone -> predicted state:
+  'Safe                  ' -> 'normal'  (labeled rows: 18)
+  'Attention Required    ' -> 'normal'  (labeled rows: 623)
+  'Cognitive Overload    ' -> 'at-risk'  (labeled rows: 141)
+  'High Risk             ' -> 'at-risk'  (0 labeled rows in this log)
+  'Critical Risk         ' -> 'at-risk'  (0 labeled rows in this log)
+  'No Data (Calibrating) ' -> 'normal'  (0 labeled rows in this log)
+
+EVALUATION B (intervention-based, defined once, not tuned):
+  predicted 'at-risk' if   recovery_state IN {INTERVENING, WARNING}
+                        OR zone IN {Cognitive Overload, High Risk, Critical Risk}
+  predicted 'normal'  otherwise
+
+  'WARNING' recovery_state rows in log: 0  (none observed; mapping defined for correctness)
+
+Ground truth grouping (both evaluations):
+  'normal    ' -> 'normal'  (340 rows)
+  'drowsy    ' -> 'at-risk'  (229 rows)
+  'distracted' -> 'at-risk'  (213 rows)
+
+--------------------------------------------------------------------------------
+6. EVALUATION A: zone-based (MEASURED)
+--------------------------------------------------------------------------------
+Confusion Matrix (rows=actual, cols=predicted):
+                       Predicted 'normal'    Predicted 'at-risk'    Total Actual
+Actual 'normal'  :             336 (TN)                4 (FP)           340
+Actual 'at-risk' :             305 (FN)             137 (TP)           442
+Total Predicted  :             641                   141                  782
+
+  TP=137  TN=336  FP=4  FN=305
+
+[sklearn.metrics.confusion_matrix]
+Labels: ['normal', 'at-risk']
+[[336   4]
+ [305 137]]
+
+[sklearn.metrics.classification_report]
+              precision    recall  f1-score   support
+
+      normal     0.5242    0.9882    0.6850       340
+     at-risk     0.9716    0.3100    0.4700       442
+
+    accuracy                         0.6049       782
+   macro avg     0.7479    0.6491    0.5775       782
+weighted avg     0.7771    0.6049    0.5635       782
+
+Overall Accuracy      : 60.49%  (473 / 782 rows)
+Precision (at-risk)   : 97.16%  (137 / 141 predicted at-risk)
+Recall    (at-risk)   : 31.00%  (137 / 442 actual at-risk)
+F1-Score  (at-risk)   : 47.00%
+False-Alert Rate      : 1.18%  (4 / 340 normal rows)
+Specificity (TNR)     : 98.82%
+
+  'drowsy' zone-based detection rate: 5 / 229 frames (2.18%)  |  stayed in lower zone: 224 frames
+  'distracted' zone-based detection rate: 132 / 213 frames (61.97%)  |  stayed in lower zone: 81 frames
+
+Detection Latency per at-risk ground-truth segment:
+  Segment #1: Ground Truth 'DROWSY'
+    Onset       : 1791150819.898228  (CSV line 270)
+    End         : 1791150836.770311  (CSV line 498)
+    Duration    : 16.87 s  (229 frames)
+    At-risk cov : 5 / 229 frames (2.18%)  |  Longest consecutive at-risk run: 5 frames
+    First alert : 1791150822.031882  (CSV line 299)  [zone=Cognitive Overload, recovery=IDLE]
+    Latency     : 2.13 s  (2.1337s exact, 29 frames)
+
+  Segment #2: Ground Truth 'DISTRACTED'
+    Onset       : 1791150849.803828  (CSV line 671)
+    End         : 1791150865.378716  (CSV line 883)
+    Duration    : 15.57 s  (213 frames)
+    At-risk cov : 132 / 213 frames (61.97%)  |  Longest consecutive at-risk run: 68 frames
+    First alert : 1791150850.913369  (CSV line 686)  [zone=Cognitive Overload, recovery=IDLE]
+    Latency     : 1.11 s  (1.1095s exact, 15 frames)
+
+Average Detection Latency (2 segment(s) detected): 1.62 s  (1.6216s exact)
+
+--------------------------------------------------------------------------------
+7. EVALUATION B: intervention-based (MEASURED)
+--------------------------------------------------------------------------------
+Confusion Matrix (rows=actual, cols=predicted):
+                       Predicted 'normal'    Predicted 'at-risk'    Total Actual
+Actual 'normal'  :             334 (TN)                6 (FP)           340
+Actual 'at-risk' :             246 (FN)             196 (TP)           442
+Total Predicted  :             580                   202                  782
+
+  TP=196  TN=334  FP=6  FN=246
+
+[sklearn.metrics.confusion_matrix]
+Labels: ['normal', 'at-risk']
+[[334   6]
+ [246 196]]
+
+[sklearn.metrics.classification_report]
+              precision    recall  f1-score   support
+
+      normal     0.5759    0.9824    0.7261       340
+     at-risk     0.9703    0.4434    0.6087       442
+
+    accuracy                         0.6777       782
+   macro avg     0.7731    0.7129    0.6674       782
+weighted avg     0.7988    0.6777    0.6597       782
+
+Overall Accuracy      : 67.77%  (530 / 782 rows)
+Precision (at-risk)   : 97.03%  (196 / 202 predicted at-risk)
+Recall    (at-risk)   : 44.34%  (196 / 442 actual at-risk)
+F1-Score  (at-risk)   : 60.87%
+False-Alert Rate      : 1.76%  (6 / 340 normal rows)
+Specificity (TNR)     : 98.24%
+
+  'drowsy' Eval-B per-class coverage: 5 / 229 frames (2.18%)  |  not detected by Eval B: 224 frames
+  'distracted' Eval-B per-class coverage: 191 / 213 frames (89.67%)  |  not detected by Eval B: 22 frames
+
+  Trigger-reason distribution on True-Positive rows (Eval B only):
+    trigger_reason='HEAD': 146 rows
+    trigger_reason='(empty)': 50 rows
+  NOTE: The KINEMATIC channel uses SIMULATED data in this log.
+        trigger_reason='KINEMATIC' rows do not reflect real vehicle sensor events.
+
+Detection Latency per at-risk ground-truth segment:
+  Segment #1: Ground Truth 'DROWSY'
+    Onset       : 1791150819.898228  (CSV line 270)
+    End         : 1791150836.770311  (CSV line 498)
+    Duration    : 16.87 s  (229 frames)
+    At-risk cov : 5 / 229 frames (2.18%)  |  Longest consecutive at-risk run: 5 frames
+    First alert : 1791150822.031882  (CSV line 299)  [zone=Cognitive Overload, recovery=IDLE]
+    Latency     : 2.13 s  (2.1337s exact, 29 frames)
+
+  Segment #2: Ground Truth 'DISTRACTED'
+    Onset       : 1791150849.803828  (CSV line 671)
+    End         : 1791150865.378716  (CSV line 883)
+    Duration    : 15.57 s  (213 frames)
+    At-risk cov : 191 / 213 frames (89.67%)  |  Longest consecutive at-risk run: 190 frames
+    First alert : 1791150850.913369  (CSV line 686)  [zone=Cognitive Overload, recovery=IDLE]
+    Latency     : 1.11 s  (1.1095s exact, 15 frames)
+
+Average Detection Latency (2 segment(s) detected): 1.62 s  (1.6216s exact)
+
+--------------------------------------------------------------------------------
+8. SIDE-BY-SIDE COMPARISON: EVALUATION A vs EVALUATION B
+--------------------------------------------------------------------------------
+Metric                                 Eval A (zone-based)    Eval B (intervention) 
+------------------------------------------------------------------------------------
+Accuracy                               60.49%                 67.77%                
+Precision (at-risk)                    97.16%                 97.03%                
+Recall    (at-risk)                    31.00%                 44.34%                
+F1-Score  (at-risk)                    47.00%                 60.87%                
+False-Alert Rate                       1.18%                  1.76%                 
+Specificity (TNR)                      98.82%                 98.24%                
+TP / FN / FP / TN                      137/305/4/336          196/246/6/334         
+Avg Detection Latency                  1.6216s (n=2)          1.6216s (n=2)         
+  Latency  seg#1 (DROWSY)              2.1337s                2.1337s               
+  Coverage seg#1 (DROWSY)              2.18% (5/229)          2.18% (5/229)         
+  Max run  seg#1 (DROWSY)              5                      5                     
+  Latency  seg#2 (DISTRACTED)          1.1095s                1.1095s               
+  Coverage seg#2 (DISTRACTED)          61.97% (132/213)       89.67% (191/213)      
+  Max run  seg#2 (DISTRACTED)          68                     190                   
+
+Neither evaluation is selected as 'better'. Both are reported as-is.
+Eval A uses only the zone field. Eval B additionally folds in recovery_state,
+which persists (INTERVENING hysteresis) even after the zone drops below threshold.
+This means Eval B's higher recall partly reflects system state persistence, not faster
+detection. Eval A is the more conservative / ground-truth-honest measurement.
+
+--------------------------------------------------------------------------------
+9. SENSITIVITY ANALYSIS  [SENSITIVITY, NOT A RESULT]
+--------------------------------------------------------------------------------
+Sensitivity test: what if 'Attention Required' also counts as at-risk (Eval A)?
+This widens the detection boundary. Shown only to illustrate the recall vs
+false-alert tradeoff. DO NOT cite these numbers as system accuracy.
+
+  Metric                         Standard Eval A        Sensitivity (AttnReq=at-risk)
+  ---------------------------------------------------------------------------
+  Recall (at-risk)               31.00%                 100.00%
+  False-Alert Rate               1.18%                  94.71%
+  Precision (at-risk)            97.16%                 57.85%
+  F1-Score (at-risk)             47.00%                 73.30%
+  Accuracy                       60.49%                 58.82%
+  TP / FN / FP / TN              137/305/4/336          442/0/322/18
+
+  Widening the boundary yields 100% recall but also flags most normal frames as at-risk.
+
+--------------------------------------------------------------------------------
+10. LIMITATIONS  [READ BEFORE CITING ANY NUMBER]
+--------------------------------------------------------------------------------
+1. Single session, single subject.
+   All metrics are from one ~71-second session with one participant. Results
+   cannot be generalized to a population or cited as system accuracy.
+
+2. Autocorrelation / effective sample size.
+   Rows are logged at ~13.5 fps. Consecutive frames are highly autocorrelated.
+   The effective statistical n is the number of labeled segments: 4
+   (2 normal segments, 1 drowsy segment, 1 distracted segment), NOT the 782 labeled rows.
+   No valid confidence intervals can be computed from this data alone.
+
+3. Labeling delay, direction unknown.
+   Latency is measured from the first row carrying the new ground-truth label, set by a
+   human keypress. The offset between keypress and true onset was NOT measured and its sign
+   is unknown (key before behavior overstates latency; key after understates it).
+   Treat latency as indicative only; it is NOT an upper bound.
+
+4. Average latency is over n=2 segments.
+   The average detection latency is the mean of exactly 2 measurements (one drowsy,
+   one distracted). It is not a statistically stable estimate.
+
+5. Kinematic channel is simulated.
+   The kinematic (steering/accelerometer) modality uses synthetic data in this log.
+   trigger_reason='KINEMATIC' rows do not reflect real vehicle sensor events.
+
+6. No labeled row reached High Risk or Critical Risk (max CSI over the whole
+   log = 64); upper zones were not exercised.
+
+7. Recovery-state hysteresis inflates Evaluation B recall.
+   INTERVENING persists after the zone drops back below threshold. This means Eval B
+   correctly labels frames that Eval A misses, but this is partially due to system state
+   memory rather than the signal being truly at-risk at that moment.
+
+8. Evaluation B was defined after Evaluation A's results were seen
+   (post hoc, exploratory), not pre-registered.
+
+9. Eval A and Eval B latencies are identical because the first at-risk
+   row in both is the same zone crossing; B's latency is not independent evidence.
+
+--------------------------------------------------------------------------------
+11. UNCOMPUTABLE METRICS & LOG GAPS
+--------------------------------------------------------------------------------
+Metrics that CANNOT be computed from this log:
+  1. Multi-class confusion (drowsy vs distracted separately) -- the pipeline
+     produces a single CSI severity score, not independent classifiers per impairment type.
+  2. Driver recovery time -- the session ends in an 'unlabeled' period; no labeled
+     return-to-normal segment follows the distracted block.
+  3. Population accuracy or confidence intervals -- single-subject data only.
+================================================================================
