@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import LiveFeed from './components/LiveFeed';
 import CockpitDash from './components/CockpitDash';
 import AnalyticsView from './components/AnalyticsView';
+import LiveMonitor from './components/LiveMonitor';
 
 export default function App() {
   const [currentTab, setCurrentTab] = useState('dashboard');
@@ -17,6 +18,36 @@ export default function App() {
     const pollInterval = setInterval(handleFetch, 300);
     return () => clearInterval(pollInterval);
   }, []);
+
+  // Full-screen live monitor — bypass the normal layout
+  if (currentTab === 'live') {
+    return (
+      <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col font-sans">
+        <header className="border-b border-slate-800 bg-slate-900/60 backdrop-blur px-8 py-4 flex justify-between items-center">
+          <div className="flex items-center gap-3">
+            <div className="h-3 w-3 rounded-full bg-cyan-500 animate-pulse" />
+            <h1 className="text-xl font-black tracking-widest bg-gradient-to-r from-cyan-400 to-blue-500 bg-clip-text text-transparent">
+              NEUROPILOT AI-X <span className="text-xs border border-cyan-500/40 px-1.5 py-0.5 rounded text-cyan-400">SDV</span>
+            </h1>
+          </div>
+          <div className="flex gap-4 bg-slate-950 p-1.5 rounded-lg border border-slate-800">
+            <button onClick={() => setCurrentTab('dashboard')} className="px-6 py-2 rounded-md font-semibold tracking-wide text-sm transition-all duration-300 text-slate-400 hover:text-slate-200">
+              INTELLIGENT COCKPIT
+            </button>
+            <button onClick={() => setCurrentTab('analytics')} className="px-6 py-2 rounded-md font-semibold tracking-wide text-sm transition-all duration-300 text-slate-400 hover:text-slate-200">
+              REAL-TIME ANALYTICS
+            </button>
+            <button onClick={() => setCurrentTab('live')} className="px-6 py-2 rounded-md font-semibold tracking-wide text-sm transition-all duration-300 bg-rose-700 text-white shadow-lg">
+              LIVE MONITOR
+            </button>
+          </div>
+        </header>
+        <main className="flex-1">
+          <LiveMonitor />
+        </main>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col font-sans">
@@ -34,6 +65,9 @@ export default function App() {
           </button>
           <button onClick={() => setCurrentTab('analytics')} className={`px-6 py-2 rounded-md font-semibold tracking-wide text-sm transition-all duration-300 ${currentTab === 'analytics' ? 'bg-cyan-600 text-white shadow-lg' : 'text-slate-400 hover:text-slate-200'}`}>
             REAL-TIME ANALYTICS
+          </button>
+          <button onClick={() => setCurrentTab('live')} className="px-6 py-2 rounded-md font-semibold tracking-wide text-sm transition-all duration-300 border border-rose-700/50 text-rose-400 hover:bg-rose-950/40 hover:text-rose-300">
+            LIVE MONITOR
           </button>
         </div>
       </header>
